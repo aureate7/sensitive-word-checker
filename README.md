@@ -1,4 +1,5 @@
 🔗 在线体验：http://sensiteword.site
+
 ⭐ 如果你觉得这个项目有价值，请点一个 Star 支持我们！
 
 # go-sensitive-checker-fronted
