@@ -1,6 +1,10 @@
-# fronted
+# go-sensitive-checker-fronted
 
 This template should help get you started developing with Vue 3 in Vite.
+
+## repositories
+frontend: https://github.com/aureate7/go-sensitive-checker-fronted
+backend: https://github.com/aureate7/go-sensitive-checker
 
 ## Recommended IDE Setup
 
