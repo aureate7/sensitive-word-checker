@@ -6,6 +6,9 @@ This template should help get you started developing with Vue 3 in Vite.
 frontend: https://github.com/aureate7/go-sensitive-checker-fronted
 backend: https://github.com/aureate7/go-sensitive-checker
 
+## How to employ
+Run the command `NODE_ENV=production npm run build` in the **root directory** of the project. This will generate a new folder, **named** `dist`, also in the root. Finally, **upload** the `dist` folder to your server and **configure it** to serve the static page.
+
 ## Recommended IDE Setup
 
 [VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
