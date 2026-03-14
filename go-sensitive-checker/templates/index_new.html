@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敏感词检测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* 基础响应式设置 */
+        :root {
+            --header-height: clamp(3rem, 8vh, 5rem);
+            --main-padding: clamp(1rem, 3vw, 2rem);
+            --card-spacing: clamp(1rem, 2vw, 1.5rem);
+            --font-size-base: clamp(0.875rem, 2vw, 1rem);
+            --font-size-large: clamp(1.5rem, 4vw, 2.5rem);
+            --font-size-medium: clamp(1.1rem, 2.5vw, 1.3rem);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: var(--font-size-base);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .main-container {
+            max-width: min(1200px, 95vw);
+            margin: 0 auto;
+            padding: var(--main-padding);
+            padding-top: calc(var(--header-height) + var(--main-padding));
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: clamp(2rem, 5vh, 3rem);
+            padding: clamp(1rem, 3vh, 2rem) 0;
+        }
+        
+        .header h1 {
+            font-size: var(--font-size-large);
+            font-weight: 700;
+            margin-bottom: clamp(0.5rem, 2vh, 1rem);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+        
+        .header p {
+            font-size: var(--font-size-medium);
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .content {
+            display: grid;
+            gap: var(--card-spacing);
+        }
+        
+        .card {
+            border: none;
+            border-radius: clamp(10px, 2vw, 15px);
+            box-shadow: 0 clamp(5px, 1.5vw, 10px) clamp(15px, 3vw, 30px) rgba(0,0,0,0.1);
+            background: white;
+            overflow: hidden;
+        }
+        
+        .card-body {
+            padding: clamp(1.5rem, 4vw, 2rem);
+        }
+        
+        .card-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: clamp(1rem, 3vw, 1.5rem);
+            font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: clamp(10px, 2vw, 15px);
+            padding: clamp(1.5rem, 4vw, 2rem);
+            box-shadow: 0 clamp(5px, 1.5vw, 10px) clamp(15px, 3vw, 30px) rgba(0,0,0,0.1);
+        }
+        
+        .stats-card h5 {
+            margin-bottom: clamp(1rem, 3vw, 1.5rem);
+            font-weight: 600;
+            font-size: clamp(1rem, 2.5vw, 1.2rem);
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: clamp(0.5rem, 1.5vw, 0.75rem) 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: clamp(0.875rem, 2vw, 1rem);
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .form-group {
+            margin-bottom: clamp(1.5rem, 4vw, 2rem);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+            font-size: clamp(0.9rem, 2vw, 1rem);
+        }
+        
+        .form-control {
+            border-radius: clamp(8px, 1.5vw, 10px);
+            border: 2px solid #e9ecef;
+            padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 2.5vw, 1.25rem);
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            transition: all 0.3s ease;
+            width: 100%;
+            resize: vertical;
+            min-height: clamp(80px, 15vh, 120px);
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .category-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+            gap: clamp(0.75rem, 2vw, 1rem);
+        }
+        
+        .form-check {
+            background: #f8f9fa;
+            padding: clamp(0.75rem, 2vw, 1rem);
+            border-radius: clamp(8px, 1.5vw, 10px);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+        }
+        
+        .form-check:hover {
+            border-color: #667eea;
+            background: #fff;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            border-radius: clamp(8px, 1.5vw, 10px);
+            padding: clamp(0.75rem, 2vw, 1rem) clamp(1.5rem, 3vw, 2rem);
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            white-space: nowrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 clamp(3px, 1vw, 5px) clamp(10px, 2.5vw, 15px) rgba(102, 126, 234, 0.4);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: clamp(2rem, 5vw, 3rem);
+            background: white;
+            border-radius: clamp(10px, 2vw, 15px);
+            box-shadow: 0 clamp(5px, 1.5vw, 10px) clamp(15px, 3vw, 30px) rgba(0,0,0,0.1);
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: clamp(10px, 2vw, 15px);
+            box-shadow: 0 clamp(5px, 1.5vw, 10px) clamp(15px, 3vw, 30px) rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .result-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: clamp(1rem, 3vw, 1.5rem) clamp(1.5rem, 4vw, 2rem);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+        
+        .result-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: clamp(1rem, 2.5vw, 1.2rem);
+        }
+        
+        .status-badge {
+            padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(1rem, 2.5vw, 1.5rem);
+            border-radius: clamp(15px, 3vw, 20px);
+            font-weight: 600;
+            font-size: clamp(0.8rem, 2vw, 0.9rem);
+            white-space: nowrap;
+        }
+        
+        .status-safe {
+            background: rgba(40, 167, 69, 0.9);
+        }
+        
+        .status-danger {
+            background: rgba(220, 53, 69, 0.9);
+        }
+        
+        .result-content {
+            padding: clamp(1.5rem, 4vw, 2rem);
+        }
+        
+        .category-card {
+            background: #f8f9fa;
+            border-radius: clamp(8px, 1.5vw, 10px);
+            padding: clamp(1rem, 3vw, 1.5rem);
+            margin-bottom: clamp(1rem, 3vw, 1.5rem);
+            border-left: 4px solid #667eea;
+        }
+        
+        .category-card h6 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: clamp(0.75rem, 2vw, 1rem);
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+        }
+        
+        .word-item {
+            background: white;
+            border-radius: clamp(6px, 1.5vw, 8px);
+            padding: clamp(0.75rem, 2vw, 1rem);
+            margin-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+        
+        .word-count {
+            color: #6c757d;
+            font-size: clamp(0.8rem, 2vw, 0.9rem);
+        }
+        
+        .highlight-text {
+            background: #ffc107;
+            padding: clamp(1px, 0.5vw, 3px) clamp(2px, 1vw, 4px);
+            border-radius: clamp(2px, 1vw, 4px);
+            font-weight: bold;
+            display: inline-block;
+            word-break: break-all;
+        }
+        
+        .text-preview {
+            background: #f8f9fa;
+            border-radius: clamp(8px, 1.5vw, 10px);
+            padding: clamp(1rem, 3vw, 1.5rem);
+            margin-top: clamp(1rem, 3vw, 1.5rem);
+            border: 1px solid #e9ecef;
+            max-height: clamp(200px, 40vh, 300px);
+            overflow-y: auto;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            line-height: 1.6;
+        }
+
+        /* 紧缩类别分组卡片和内部间距 */
+        #categoryGroups .card {
+            margin-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+            box-shadow: 0 clamp(1px, 0.5vw, 2px) clamp(4px, 1.5vw, 8px) rgba(0,0,0,0.05);
+        }
+        #categoryGroups .card-header {
+            padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(1rem, 2.5vw, 1.25rem);
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
+        }
+        #categoryGroups .card-body {
+            padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem);
+        }
+        #categoryGroups .form-check {
+            padding: clamp(0.4rem, 1.5vw, 0.6rem) clamp(0.5rem, 1.5vw, 0.75rem);
+            margin-bottom: clamp(0.25rem, 1vw, 0.4rem);
+        }
+        #categoryGroups .form-check-label {
+            font-size: clamp(0.85rem, 2vw, 0.98rem);
+        }
+        #categoryGroups .form-check-input {
+            margin-right: clamp(0.4rem, 1.5vw, 0.6rem);
+        }
+        #categoryGroups .col-md-6 {
+            padding-left: clamp(0.4rem, 1.5vw, 0.6rem);
+            padding-right: clamp(0.4rem, 1.5vw, 0.6rem);
+        }
+
+        /* 菜单栏美化 */
+        #mainNavbar .navbar-nav .nav-link {
+            margin: 0 clamp(0.3rem, 1vw, 0.7rem);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: clamp(1rem, 3vw, 2rem);
+            padding: clamp(0.3rem, 1.5vw, 0.5rem) clamp(0.8rem, 2.5vw, 1.4rem);
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: clamp(0.8rem, 2vw, 1rem);
+        }
+        #mainNavbar .navbar-nav .nav-link.active, #mainNavbar .navbar-nav .nav-link:focus, #mainNavbar .navbar-nav .nav-link:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #fff;
+            color: #fff !important;
+            box-shadow: 0 clamp(1px, 0.5vw, 2px) clamp(4px, 1.5vw, 8px) rgba(0,0,0,0.08);
+        }
+        #mainNavbar .navbar-brand {
+            font-size: clamp(1rem, 3vw, 1.3rem);
+            letter-spacing: clamp(0.5px, 1vw, 1px);
+        }
+
+        /* 固定导航栏 + 阴影 */
+        #mainNavbar {
+          background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+          box-shadow: 0 clamp(2px, 1vw, 4px) clamp(12px, 3vw, 24px) rgba(102, 126, 234, 0.15), 0 clamp(0.75px, 0.5vw, 1.5px) 0 #fff inset;
+          border-radius: 0 0 clamp(0.75rem, 3vw, 1.5rem) clamp(0.75rem, 3vw, 1.5rem);
+          padding: clamp(0.1rem, 0.5vw, 0.2rem) 0;
+          z-index: 1000;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+        }
+
+        /* 深色模式下菜单栏 */
+        body.dark-mode #mainNavbar .navbar-nav .nav-link {
+            border: 2px solid #444;
+            color: #e9ecef !important;
+        }
+        body.dark-mode #mainNavbar .navbar-nav .nav-link.active, body.dark-mode #mainNavbar .navbar-nav .nav-link:focus, body.dark-mode #mainNavbar .navbar-nav .nav-link:hover {
+            background: #444;
+            border-color: #ffc107;
+            color: #ffc107 !important;
+        }
+
+        /* ====== 顶部菜单栏美化增强 ====== */
+        #mainNavbar .navbar-brand {
+            font-weight: 800;
+            font-size: clamp(1.1rem, 3vw, 1.4rem);
+            letter-spacing: clamp(1px, 2vw, 2px);
+            color: #fff !important;
+            text-shadow: 1px 2px 8px rgba(102,126,234,0.15);
+        }
+        #mainNavbar .navbar-nav .nav-link {
+            margin: 0 clamp(0.5rem, 1.5vw, 0.7rem);
+            border: 2px solid rgba(255,255,255,0.18);
+            border-radius: clamp(1.5rem, 3vw, 2rem);
+            padding: clamp(0.4rem, 1.5vw, 0.5rem) clamp(1rem, 2.5vw, 1.4rem);
+            font-weight: 600;
+            color: #f3f3f3 !important;
+            transition: all 0.22s cubic-bezier(.4,2,.6,1);
+            background: rgba(255,255,255,0.04);
+            box-shadow: 0 clamp(1px, 0.5vw, 2px) clamp(4px, 1.5vw, 8px) rgba(102,126,234,0.04);
+        }
+        #mainNavbar .navbar-nav .nav-link.active,
+        #mainNavbar .navbar-nav .nav-link:focus,
+        #mainNavbar .navbar-nav .nav-link:hover {
+            background: rgba(255,255,255,0.22);
+            border-color: #fff;
+            color: #764ba2 !important;
+            box-shadow: 0 clamp(2px, 1vw, 4px) clamp(8px, 2.5vw, 16px) rgba(102,126,234,0.13);
+            text-shadow: 0 1px 0 #fff;
+        }
+        #mainNavbar::after {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 10%;
+            right: 10%;
+            bottom: 0;
+            height: clamp(2px, 1vw, 4px);
+            border-radius: clamp(1px, 0.5vw, 2px);
+            background: linear-gradient(90deg, #fff 0%, #ffd6e0 50%, #fff 100%);
+            opacity: 0.18;
+            pointer-events: none;
+        }
+
+        /* 响应式网格布局 */
+        .row {
+            margin-left: calc(-1 * clamp(0.25rem, 1vw, 0.5rem));
+            margin-right: calc(-1 * clamp(0.25rem, 1vw, 0.5rem));
+        }
+        
+        .col-md-6 {
+            padding-left: clamp(0.25rem, 1vw, 0.5rem);
+            padding-right: clamp(0.25rem, 1vw, 0.5rem);
+        }
+
+        /* 小屏幕适配 */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: clamp(0.75rem, 2vw, 1rem);
+                padding-top: calc(var(--header-height) + clamp(0.75rem, 2vw, 1rem));
+            }
+            
+            .header h1 {
+                font-size: clamp(1.5rem, 6vw, 2rem);
+            }
+            
+            .header p {
+                font-size: clamp(0.9rem, 3vw, 1rem);
+            }
+            
+            .card-body {
+                padding: clamp(1rem, 3vw, 1.5rem);
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+            }
+            
+            .d-md-flex {
+                flex-direction: column;
+            }
+            
+            .result-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .word-item {
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+        }
+
+        /* 超小屏幕适配 */
+        @media (max-width: 480px) {
+            .main-container {
+                padding: clamp(0.5rem, 1.5vw, 0.75rem);
+                padding-top: calc(var(--header-height) + clamp(0.5rem, 1.5vw, 0.75rem));
+            }
+            
+            .header h1 {
+                font-size: clamp(1.25rem, 7vw, 1.75rem);
+            }
+            
+            .stats-card {
+                padding: clamp(1rem, 3vw, 1.5rem);
+            }
+            
+            .form-control {
+                font-size: 16px; /* 防止iOS缩放 */
+            }
+        }
+
+        /* 大屏幕优化 */
+        @media (min-width: 1200px) {
+            .main-container {
+                max-width: 1200px;
+            }
+            
+            .content {
+                grid-template-columns: 1fr;
+                gap: clamp(1.5rem, 2vw, 2rem);
+            }
+        }
+
+        /* 确保文本不会溢出 */
+        .text-break {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: clamp(6px, 1.5vw, 8px);
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: clamp(3px, 1vw, 4px);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: clamp(3px, 1vw, 4px);
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部菜单栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNavbar">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">
+          <i class="fas fa-shield-alt me-2"></i>敏感词检测系统
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+          aria-controls="navbarNav" aria-expanded="false" aria-label="切换导航">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <a class="nav-link active" aria-current="page" href="#">首页</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#statistics">敏感词统计</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/" target="_blank">
+                <i class="bi bi-github"></i> 项目仓库
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#aboutModal" data-bs-toggle="modal">
+                <i class="bi bi-info-circle"></i> 关于
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 关于弹窗 -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="aboutModalLabel">关于敏感词检测系统</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>本系统用于文本内容的敏感词检测，支持多类别分组、相似词检测、深色模式等功能。</p>
+            <p class="text-muted">Powered by Flask + Bootstrap5 + SweetAlert2</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="header">
+                <h1><i class="fas fa-shield-alt me-3"></i>敏感词检测系统</h1>
+                <p>专业的文本内容安全检测工具</p>
+            </div>
+            
+            <div class="content">
+                <!-- 统计信息 -->
+                <div class="stats-card">
+                    <h5><i class="fas fa-chart-bar me-2"></i>敏感词库统计</h5>
+                    <div id="statistics">
+                        <div class="text-center">
+                            <div class="spinner-border text-light" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 检测表单 -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-search me-2"></i>文本检测</h5>
+                        
+                        <div class="form-group">
+                            <label for="textInput" class="form-label">输入要检测的文本：</label>
+                            <textarea class="form-control text-break" id="textInput" rows="6" 
+                                      placeholder="请输入要检测的文本内容..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">选择检测类别：</label>
+                            <div id="categoryGroups" class="row g-3">
+                                <!-- 动态加载分组类别 -->
+                            </div>
+                        </div>
+                        
+                                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button class="btn btn-secondary me-md-2 mb-2 mb-md-0" onclick="clearText()">
+                        <i class="fas fa-eraser me-2"></i>清空
+                    </button>
+                    <button class="btn btn-primary mb-2 mb-md-0" id="detectBtn" onclick="detectText()">
+                        <span id="detectBtnText"><i class="fas fa-search me-2"></i>开始检测</span>
+                        <span id="detectBtnLoading" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                    <button class="btn btn-outline-dark ms-md-2" id="darkModeBtn" onclick="toggleDarkMode()">
+                        <i class="bi bi-moon"></i> 深色模式
+                    </button>
+                </div>
+                    </div>
+                </div>
+                
+                <!-- 加载状态 -->
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">检测中...</span>
+                    </div>
+                    <p class="mt-3">正在检测文本内容，请稍候...</p>
+                </div>
+                
+                <!-- 检测结果 -->
+                <div class="result-card" id="resultCard" style="display: none;">
+                    <div class="result-header">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>检测结果</h5>
+                        <span class="status-badge" id="statusBadge"></span>
+                    </div>
+                    <div class="result-content" id="resultContent">
+                        <!-- 结果内容 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        // 全局变量
+        let categories = {};
+        let originalText = '';
+        // 分组映射
+        const categoryGroups = [
+            {
+                group: 'political',
+                name: '政治类',
+                children: [
+                    { key: 'political_high', name: '政治高敏感' },
+                    { key: 'political_low', name: '政治低敏感' },
+                    { key: 'political_person', name: '政治敏感人物' },
+                    { key: 'political_banned_books', name: '禁书' },
+                    { key: 'political_prohibited', name: '政治违禁词' }
+                ]
+            },
+            {
+                group: 'violent',
+                name: '暴恐类',
+                children: [
+                    { key: 'violent_high', name: '暴恐高敏感' },
+                    { key: 'violent_low', name: '暴恐低敏感' },
+                    { key: 'violent_chemical', name: '化学药剂' } // 新增
+                ]
+            },
+            {
+                group: 'pornographic',
+                name: '涉黄类',
+                children: [
+                    { key: 'pornographic_high', name: '涉黄高敏感' },
+                    { key: 'pornographic_low', name: '涉黄低敏感' }
+                ]
+            },
+            {
+                group: 'abusive',
+                name: '辱骂类',
+                children: [
+                    { key: 'abusive_high', name: '辱骂高敏感' },
+                    { key: 'abusive_low', name: '辱骂低敏感' }
+                ]
+            },
+            {
+                group: 'advertising',
+                name: '广告类',
+                children: [
+                    { key: 'advertising_high', name: '广告高敏感' },
+                    { key: 'advertising_low', name: '广告低敏感' }
+                ]
+            }
+        ];
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+            loadCategories();
+        });
+        
+        // 加载统计信息
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const stats = await response.json();
+                
+                // 指定类别顺序
+                const categoryOrder = ['total', 'political', 'violent', 'pornographic', 'abusive', 'advertising'];
+                const categoryNames = {
+                    'political': '政治敏感词',
+                    'violent': '暴恐类敏感词',
+                    'pornographic': '涉黄类敏感词',
+                    'abusive': '辱骂类敏感词',
+                    'advertising': '拉人广告敏感词',
+                    'total': '总计'
+                };
+                const orderedStats = categoryOrder
+                    .filter(key => stats[key] !== undefined)
+                    .map(key => [key, stats[key]]);
+                const statsHtml = orderedStats.map(([key, value]) => {
+                    if (key === 'total') {
+                        return `<div class="stat-item">
+                            <strong class="text-break">总计</strong>
+                            <span class="badge bg-light text-dark">${value.toLocaleString()}</span>
+                        </div>`;
+                    }
+                    return `<div class="stat-item">
+                        <span class="text-break">${categoryNames[key] || key}</span>
+                        <span class="badge bg-light text-dark">${value.toLocaleString()}</span>
+                    </div>`;
+                }).join('');
+                document.getElementById('statistics').innerHTML = statsHtml;
+            } catch (error) {
+                console.error('加载统计信息失败:', error);
+                document.getElementById('statistics').innerHTML = '<p class="text-danger">加载统计信息失败</p>';
+            }
+        }
+        
+        // 加载类别（分组显示）
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                categories = await response.json();
+                let html = '';
+                categoryGroups.forEach(group => {
+                    html += `<div class="col-md-6"><div class="card shadow-sm h-100"><div class="card-header bg-light fw-bold">${group.name}</div><div class="card-body p-2">`;
+                    group.children.forEach(child => {
+                        if (categories[child.key]) {
+                            html += `
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" value="${child.key}" id="category_${child.key}" checked>
+                                    <label class="form-check-label" for="category_${child.key}">
+                                        ${categories[child.key]}
+                                    </label>
+                                </div>
+                            `;
+                        }
+                    });
+                    html += '</div></div></div>';
+                });
+                document.getElementById('categoryGroups').innerHTML = html;
+            } catch (error) {
+                console.error('加载类别失败:', error);
+            }
+        }
+        
+        // 获取选中的类别时需修改为新分组容器
+        async function detectText() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                Swal.fire({icon: 'warning', title: '请输入要检测的文本内容', confirmButtonText: '好的'});
+                return;
+            }
+            originalText = text;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultCard').style.display = 'none';
+            // 按钮 loading
+            document.getElementById('detectBtn').disabled = true;
+            document.getElementById('detectBtnText').classList.add('d-none');
+            document.getElementById('detectBtnLoading').classList.remove('d-none');
+            // 获取选中的类别（分组容器）
+            const selectedCategories = Array.from(document.querySelectorAll('#categoryGroups input:checked'))
+                .map(cb => cb.value);
+            try {
+                const response = await fetch('/api/detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, categories: selectedCategories })
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const result = await response.json();
+                if (result.error) { Swal.fire({icon:'error',title:'检测失败',text:result.error}); return; }
+                if (result.has_sensitive === undefined) result.has_sensitive = false;
+                displayResult(result);
+            } catch (error) {
+                console.error('检测失败:', error);
+                Swal.fire({icon:'error',title:'检测失败',text:error.message});
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('detectBtn').disabled = false;
+                document.getElementById('detectBtnText').classList.remove('d-none');
+                document.getElementById('detectBtnLoading').classList.add('d-none');
+            }
+        }
+        
+        // 去重敏感词，避免重复计数
+        function deduplicateWords(detectedWords) {
+            const seen = new Set();
+            const uniqueWords = [];
+            
+            detectedWords.forEach(word => {
+                const key = `${word.word}_${word.category}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueWords.push(word);
+                }
+            });
+            
+            return uniqueWords;
+        }
+        
+        // 显示结果
+        function displayResult(result) {
+            console.log('开始显示结果:', result);
+            console.log('result.has_sensitive:', result.has_sensitive);
+            console.log('result.detected_words:', result.detected_words);
+            
+            // 去重敏感词
+            if (result.detected_words) {
+                result.detected_words = deduplicateWords(result.detected_words);
+            }
+            
+            const statusBadge = document.getElementById('statusBadge');
+            const resultContent = document.getElementById('resultContent');
+            
+            console.log('statusBadge元素:', statusBadge);
+            console.log('resultContent元素:', resultContent);
+            
+            // 设置状态
+            console.log('has_sensitive值:', result.has_sensitive, '类型:', typeof result.has_sensitive);
+            if (result.has_sensitive === true) {
+                console.log('设置危险状态');
+                statusBadge.className = 'status-badge status-danger';
+                statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>发现敏感内容';
+            } else {
+                console.log('设置安全状态');
+                statusBadge.className = 'status-badge status-safe';
+                statusBadge.innerHTML = '<i class="fas fa-check-circle me-2"></i>内容安全';
+            }
+            
+            // 生成结果内容
+            let contentHtml = '';
+            
+            if (result.has_sensitive === true) {
+                // 风险等级显示
+                const riskLevelText = {
+                    'high': '高风险',
+                    'medium': '中风险', 
+                    'low': '低风险',
+                    'safe': '安全'
+                };
+                
+                const riskLevelClass = {
+                    'high': 'danger',
+                    'medium': 'warning',
+                    'low': 'info',
+                    'safe': 'success'
+                };
+                
+                contentHtml += `
+                    <div class="alert alert-${riskLevelClass[result.risk_level] || 'warning'}">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        检测到 <strong>${result.detected_words ? result.detected_words.length : result.total_count}</strong> 个敏感词
+                        <span class="badge bg-${riskLevelClass[result.risk_level] || 'warning'} ms-2">
+                            ${riskLevelText[result.risk_level] || '未知'}
+                        </span>
+                    </div>
+                `;
+                
+                // 分类统计
+                if (result.category_summary && Object.keys(result.category_summary).length > 0) {
+                    contentHtml += `
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>分类统计</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                    `;
+                    
+                    Object.entries(result.category_summary).forEach(([category, stats]) => {
+                        contentHtml += `
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>${categories[category] || category}</span>
+                                    <div>
+                                        <span class="badge bg-secondary">总计${stats.total}</span>
+                                        ${stats.high > 0 ? `<span class="badge bg-danger ms-1">高${stats.high}</span>` : ''}
+                                        ${stats.medium > 0 ? `<span class="badge bg-warning ms-1">中${stats.medium}</span>` : ''}
+                                        ${stats.low > 0 ? `<span class="badge bg-info ms-1">低${stats.low}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    contentHtml += `
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 按类别显示结果
+                Object.entries(result.categories).forEach(([category, data]) => {
+                    contentHtml += `
+                        <div class="category-card">
+                            <h6><i class="fas fa-tag me-2"></i>${categories[category] || category}</h6>
+                            <p class="text-muted mb-3">发现 ${data.words ? data.words.length : data.count} 个敏感词</p>
+                    `;
+                    
+                    data.words.forEach(wordData => {
+                        const levelClass = {
+                            'high': 'danger',
+                            'low': 'warning'
+                        };
+                        
+                        contentHtml += `
+                            <div class="word-item">
+                                <div class="d-flex align-items-center">
+                                    <span><strong>${wordData.word}</strong></span>
+                                    <span class="badge bg-${levelClass[wordData.level] || 'secondary'} ms-2">
+                                        ${wordData.level === 'high' ? '高' : '低'}
+                                    </span>
+                                </div>
+                                <span class="word-count">出现 ${wordData.count_raw || 1} 次</span>
+                            </div>
+                        `;
+                    });
+                    
+                    contentHtml += '</div>';
+                });
+                
+                // 显示高亮文本
+                contentHtml += `
+                    <div class="text-preview">
+                        <h6><i class="fas fa-eye me-2"></i>文本预览（敏感词已高亮）</h6>
+                        <div id="highlightedText" class="text-break"></div>
+                    </div>
+                `;
+                
+                // 高亮敏感词
+                if (result.detected_words && result.detected_words.length > 0) {
+                    // 延迟执行，确保DOM元素已经创建
+                    setTimeout(() => {
+                        highlightSensitiveWords(originalText, result.detected_words);
+                    }, 100);
+                }
+            } else {
+                contentHtml = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        恭喜！未发现敏感内容，文本安全。
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-shield-alt" style="font-size: 4rem; color: #28a745;"></i>
+                        <p class="mt-3 text-muted">文本内容符合安全标准</p>
+                    </div>
+                `;
+                // 新增：显示相似敏感词
+                if(result.similar_sensitive && result.similar_words && result.similar_words.length > 0) {
+                    contentHtml += `
+                        <div class="alert alert-warning mt-4">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            未发现严格敏感词，但检测到<strong>相似敏感词</strong>：
+                        </div>
+                        <div class="card mb-3">
+                            <div class="card-header bg-warning bg-opacity-25">
+                                <h6 class="mb-0"><i class="fas fa-search me-2"></i>相似敏感词列表</h6>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    ${result.similar_words.map(word => `
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span>
+                                                <strong>${word.sensitive_word}</strong>
+                                                <span class="text-muted ms-2">(${categories[word.category] || word.category})</span>
+                                                <span class="badge bg-secondary ms-2">类型: ${word.diff_type === 'replace' ? '替换' : (word.diff_type === 'insert' ? '少字' : '多字')}</span>
+                                            </span>
+                                            <span class="text-muted">命中片段: <span class="highlight-text">${word.matched_text}</span></span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            resultContent.innerHTML = contentHtml;
+            document.getElementById('resultCard').style.display = 'block';
+        }
+        
+        // 高亮敏感词
+        function highlightSensitiveWords(text, detectedWords) {
+            console.log('开始高亮敏感词，文本长度:', text.length);
+            console.log('检测到的敏感词:', detectedWords);
+            
+            // 等待DOM元素创建完成
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            function tryHighlight() {
+                const highlightedTextElement = document.getElementById('highlightedText');
+                console.log('尝试获取highlightedText元素，第', attempts + 1, '次:', highlightedTextElement);
+                
+                if (!highlightedTextElement) {
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        console.log('元素不存在，等待100ms后重试');
+                        setTimeout(tryHighlight, 100);
+                    } else {
+                        console.warn('highlightedText元素不存在，跳过高亮处理');
+                    }
+                    return;
+                }
+                
+                let highlightedText = text;
+                
+                // 按位置排序，从后往前替换，避免位置偏移
+                const sortedWords = detectedWords.sort((a, b) => {
+                    const maxPosA = Math.max(...a.positions);
+                    const maxPosB = Math.max(...b.positions);
+                    return maxPosB - maxPosA;
+                });
+                
+                console.log('排序后的敏感词:', sortedWords);
+                
+                sortedWords.forEach(wordData => {
+                    const regex = new RegExp(wordData.word, 'g');
+                    highlightedText = highlightedText.replace(regex, 
+                        `<span class="highlight-text">${wordData.word}</span>`);
+                });
+                
+                console.log('设置高亮文本到元素');
+                highlightedTextElement.innerHTML = highlightedText;
+                console.log('高亮文本设置完成');
+            }
+            
+            tryHighlight();
+        }
+        
+        // 清空文本
+        function clearText() {
+            document.getElementById('textInput').value = '';
+            document.getElementById('resultCard').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+            Swal.fire({icon:'info',title:'已清空',showConfirmButton:false,timer:800});
+        }
+        
+        // 回车键检测
+        document.getElementById('textInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                detectText();
+            }
+        });
+
+        // 深色模式切换
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const btn = document.getElementById('darkModeBtn');
+            if(document.body.classList.contains('dark-mode')){
+                btn.innerHTML = '<i class="bi bi-brightness-high"></i> 亮色模式';
+            }else{
+                btn.innerHTML = '<i class="bi bi-moon"></i> 深色模式';
+            }
+        }
+        // 深色模式样式
+        const darkStyle = document.createElement('style');
+        darkStyle.innerHTML = `
+        body.dark-mode { 
+            background: #23272f !important; 
+            color: #e9ecef; 
+        }
+        body.dark-mode .card, 
+        body.dark-mode .result-card, 
+        body.dark-mode .stats-card { 
+            background: #2c303a !important; 
+            color: #e9ecef; 
+        }
+        body.dark-mode .form-control, 
+        body.dark-mode .form-check, 
+        body.dark-mode .category-card, 
+        body.dark-mode .text-preview { 
+            background: #23272f !important; 
+            color: #e9ecef; 
+            border-color: #444 !important; 
+        }
+        body.dark-mode .form-label, 
+        body.dark-mode .card-title, 
+        body.dark-mode .card-header { 
+            color: #e9ecef !important; 
+        }
+        body.dark-mode .btn-primary { 
+            background: linear-gradient(135deg, #23272f 0%, #667eea 100%) !important; 
+        }
+        body.dark-mode .btn-outline-dark { 
+            border-color: #e9ecef !important; 
+            color: #e9ecef !important; 
+        }
+        body.dark-mode .alert { 
+            background: #23272f !important; 
+            color: #ffc107 !important; 
+            border-color: #444 !important; 
+        }
+        body.dark-mode .highlight-text { 
+            background: #ffc107; 
+            color: #23272f; 
+        }
+        body.dark-mode .badge.bg-light { 
+            background: #444 !important; 
+            color: #e9ecef !important; 
+        }
+        body.dark-mode #mainNavbar { 
+            background: #23272f !important; 
+        }
+        body.dark-mode .navbar, 
+        body.dark-mode .navbar .navbar-brand, 
+        body.dark-mode .navbar .nav-link { 
+            background: #23272f !important; 
+            color: #e9ecef !important; 
+        }
+        
+        /* 深色模式下的响应式适配 */
+        @media (max-width: 768px) {
+            body.dark-mode .main-container {
+                padding: clamp(0.75rem, 2vw, 1rem);
+                padding-top: calc(var(--header-height) + clamp(0.75rem, 2vw, 1rem));
+            }
+            body.dark-mode .header h1 {
+                font-size: clamp(1.5rem, 6vw, 2rem);
+            }
+            body.dark-mode .card-body {
+                padding: clamp(1rem, 3vw, 1.5rem);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body.dark-mode .main-container {
+                padding: clamp(0.5rem, 1.5vw, 0.75rem);
+                padding-top: calc(var(--header-height) + clamp(0.5rem, 1.5vw, 0.75rem));
+            }
+            body.dark-mode .header h1 {
+                font-size: clamp(1.25rem, 7vw, 1.75rem);
+            }
+        }
+        `;
+        document.head.appendChild(darkStyle);
+    </script>
+</body>
+</html> 

@@ -59,6 +59,96 @@
           </el-row>
         </el-checkbox-group>
       </el-form-item>
+
+      <el-form-item>
+        <div class="mapping-box">
+          <div class="mapping-head">
+            <div class="mapping-title-row">
+              <span class="category-label-main">词组映射</span>
+              <el-tooltip
+                effect="light"
+                placement="top"
+                popper-class="mapping-help-popper"
+              >
+                <template #content>
+                  <div class="mapping-help-pop">
+                    <div>1. 开启后，系统会先将原文中的隐晦写法映射为规范词，再进入敏感词检测流程。</div>
+                    <div>2. 映射文件支持格式：`源词=>目标词`（也兼容 `->`、`=`、英文逗号`,`、制表符），每行一条。</div>
+                    <div>3. `增量映射`：系统内置映射 + 你导入的映射共同生效；`覆盖映射`：只使用你导入的映射。</div>
+                    <div>4. 相同映射项会自动去重，注释行（`#` 或 `//` 开头）会被忽略。</div>
+                  </div>
+                </template>
+                <span class="rate-help-trigger">
+                  <el-icon><QuestionFilled /></el-icon>
+                </span>
+              </el-tooltip>
+            </div>
+            <el-switch
+              v-model="enableTermMapping"
+              inline-prompt
+              active-text="开"
+              inactive-text="关"
+            />
+          </div>
+
+          <p class="mapping-help">
+            支持格式：源词=>目标词（也支持 ->、=、英文逗号(,)、制表符），每行一条，# 开头为注释。
+          </p>
+
+          <div class="mapping-actions">
+            <el-select
+              v-model="mappingMode"
+              size="small"
+              class="mapping-mode-select"
+              :disabled="!enableTermMapping"
+            >
+              <el-option label="增量映射（系统 + 用户）" value="incremental" />
+              <el-option label="覆盖映射（仅用户）" value="override" />
+            </el-select>
+
+            <input
+              ref="mappingFileInput"
+              type="file"
+              accept=".txt,.csv,.tsv,.map"
+              class="mapping-file-input"
+              @change="handleMappingFileChange"
+            />
+
+            <el-button
+              size="small"
+              :disabled="!enableTermMapping"
+              @click="triggerMappingImport"
+            >
+              导入映射文件
+            </el-button>
+
+            <el-button
+              size="small"
+              @click="clearMappings"
+              :disabled="!customMappings.length"
+            >
+              清空导入
+            </el-button>
+          </div>
+
+          <div class="mapping-meta">
+            <el-tag size="small" type="info">
+              已导入 {{ customMappings.length }} 条
+            </el-tag>
+            <span v-if="mappingFileName" class="mapping-file-name">
+              {{ mappingFileName }}
+            </span>
+          </div>
+
+          <el-alert
+            v-if="mappingParseError"
+            type="error"
+            :closable="false"
+            show-icon
+            :description="mappingParseError"
+          />
+        </div>
+      </el-form-item>
       
       <!-- 底部按钮 -->
       <el-form-item>
@@ -81,6 +171,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { QuestionFilled } from '@element-plus/icons-vue'
 
 const props = defineProps({
   loading: {
@@ -94,7 +185,12 @@ const emit = defineEmits(['detect'])
 const text = ref('')
 const categories = ref({})
 const selectedKeys = ref([])
-
+const enableTermMapping = ref(true)
+const mappingMode = ref('incremental')
+const customMappings = ref([])
+const mappingFileName = ref('')
+const mappingParseError = ref('')
+const mappingFileInput = ref(null)
 
 // 动态生成 inputId，确保唯一性
 const inputId = `el-id-${Math.random().toString(36).substr(2, 9)}`
@@ -122,14 +218,26 @@ const handleSubmit = () => {
     return
   }
 
+  const options = {
+    exact_match: true,
+    normalize_match: true,
+    fuzzy_match: true,
+    pinyin_match: true,
+    enable_term_mapping: enableTermMapping.value,
+    mapping_mode: mappingMode.value,
+    custom_mappings: customMappings.value,
+  }
+
   console.log('CategoryPanel emit detect:', {
     textPreview: text.value.slice(0, 30) + '...',
     categories: selectedKeys.value,
+    options,
   })
 
   emit('detect', {
     text: text.value,
     categories: selectedKeys.value,
+    options,
   })
 }
 
@@ -146,6 +254,82 @@ const selectAll = () => {
 // 清空类别
 const clearCategories = () => {
   selectedKeys.value = []
+}
+
+const parseMappingLine = (line) => {
+  const m = line.match(/^(.*?)\s*(=>|->|=|,|\t)\s*(.*?)$/)
+  if (!m) return null
+  const from = m[1]?.trim()
+  const to = m[3]?.trim()
+  if (!from || !to) return null
+  return { from, to }
+}
+
+const parseMappingText = (content) => {
+  const lines = String(content || '').split(/\r?\n/)
+  const pairs = []
+  const seen = new Set()
+  let invalidCount = 0
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#') || line.startsWith('//')) {
+      continue
+    }
+    const pair = parseMappingLine(line)
+    if (!pair) {
+      invalidCount += 1
+      continue
+    }
+    const key = `${pair.from}=>${pair.to}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    pairs.push(pair)
+  }
+
+  return { pairs, invalidCount }
+}
+
+const triggerMappingImport = () => {
+  if (!mappingFileInput.value) return
+  mappingFileInput.value.click()
+}
+
+const handleMappingFileChange = async (event) => {
+  const file = event?.target?.files?.[0]
+  if (!file) return
+
+  mappingParseError.value = ''
+  try {
+    const content = await file.text()
+    const { pairs, invalidCount } = parseMappingText(content)
+    if (!pairs.length) {
+      mappingParseError.value = '未解析到有效映射，请检查文件格式。'
+      customMappings.value = []
+      mappingFileName.value = file.name
+      return
+    }
+
+    customMappings.value = pairs
+    mappingFileName.value = file.name
+    if (invalidCount > 0) {
+      mappingParseError.value = `已导入 ${pairs.length} 条，忽略 ${invalidCount} 条无效行。`
+    }
+  } catch (err) {
+    mappingParseError.value = err?.message || '读取映射文件失败'
+  } finally {
+    if (event?.target) {
+      event.target.value = ''
+    }
+  }
+}
+
+const clearMappings = () => {
+  customMappings.value = []
+  mappingFileName.value = ''
+  mappingParseError.value = ''
 }
 </script>
 
@@ -252,6 +436,91 @@ const clearCategories = () => {
 
 /* label 颜色走主题变量 */
 :deep(.el-form-item__label) {
+  color: var(--text-sub);
+}
+
+.mapping-box {
+  width: 100%;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.mapping-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mapping-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rate-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: help;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.rate-help-trigger :deep(svg) {
+  width: 17px;
+  height: 17px;
+}
+
+.rate-help-trigger:hover {
+  color: #2563eb;
+}
+
+.mapping-help-pop,
+:deep(.mapping-help-popper .mapping-help-pop) {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.mapping-help {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+.mapping-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mapping-mode-select {
+  width: 210px;
+}
+
+.mapping-file-input {
+  display: none;
+}
+
+.mapping-meta {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mapping-file-name {
+  font-size: 12px;
   color: var(--text-sub);
 }
 

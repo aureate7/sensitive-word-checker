@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敏感词检测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-weight: 300;
+            font-size: 2.5rem;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+            overflow: hidden;
+        }
+        
+        .result-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .result-content {
+            padding: 25px;
+        }
+        
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .status-safe {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .category-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .word-item {
+            background: white;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .word-count {
+            background: #667eea;
+            color: white;
+            border-radius: 15px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        
+        .category-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .form-check {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .highlight-text {
+            background: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin: 0 2px;
+        }
+        
+        .text-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #e9ecef;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="header">
+                <h1><i class="fas fa-shield-alt me-3"></i>敏感词检测系统</h1>
+                <p>专业的文本内容安全检测工具</p>
+            </div>
+            
+            <div class="content">
+                <!-- 统计信息 -->
+                <div class="stats-card">
+                    <h5><i class="fas fa-chart-bar me-2"></i>敏感词库统计</h5>
+                    <div id="statistics">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 检测表单 -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-search me-2"></i>文本检测</h5>
+                        
+                        <div class="form-group">
+                            <label for="textInput" class="form-label">输入要检测的文本：</label>
+                            <textarea class="form-control" id="textInput" rows="6" 
+                                      placeholder="请输入要检测的文本内容..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">选择检测类别：</label>
+                            <div class="category-checkboxes" id="categoryCheckboxes">
+                                <!-- 动态加载类别 -->
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button class="btn btn-secondary me-md-2" onclick="clearText()">
+                                <i class="fas fa-eraser me-2"></i>清空
+                            </button>
+                            <button class="btn btn-primary" onclick="detectText()">
+                                <i class="fas fa-search me-2"></i>开始检测
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 加载状态 -->
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">检测中...</span>
+                    </div>
+                    <p class="mt-3">正在检测文本内容，请稍候...</p>
+                </div>
+                
+                <!-- 检测结果 -->
+                <div class="result-card" id="resultCard" style="display: none;">
+                    <div class="result-header">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>检测结果</h5>
+                        <span class="status-badge" id="statusBadge"></span>
+                    </div>
+                    <div class="result-content" id="resultContent">
+                        <!-- 结果内容 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 全局变量
+        let categories = {};
+        let originalText = '';
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+            loadCategories();
+        });
+        
+        // 加载统计信息
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const stats = await response.json();
+                
+                const statsHtml = Object.entries(stats).map(([key, value]) => {
+                    if (key === 'total') {
+                        return `<div class="stat-item">
+                            <strong>总计</strong>
+                            <span class="badge bg-primary">${value.toLocaleString()}</span>
+                        </div>`;
+                    }
+                    
+                    const categoryNames = {
+                        'political': '政治敏感词',
+                        'violent': '暴恐类敏感词',
+                        'pornographic': '涉黄类敏感词',
+                        'abusive': '辱骂类敏感词',
+                        'advertising': '拉人广告敏感词'
+                    };
+                    
+                    return `<div class="stat-item">
+                        <span>${categoryNames[key] || key}</span>
+                        <span class="badge bg-secondary">${value.toLocaleString()}</span>
+                    </div>`;
+                }).join('');
+                
+                document.getElementById('statistics').innerHTML = statsHtml;
+            } catch (error) {
+                console.error('加载统计信息失败:', error);
+                document.getElementById('statistics').innerHTML = '<p class="text-danger">加载统计信息失败</p>';
+            }
+        }
+        
+        // 加载类别
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                categories = await response.json();
+                
+                const checkboxesHtml = Object.entries(categories).map(([key, name]) => `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${key}" id="category_${key}" checked>
+                        <label class="form-check-label" for="category_${key}">
+                            ${name}
+                        </label>
+                    </div>
+                `).join('');
+                
+                document.getElementById('categoryCheckboxes').innerHTML = checkboxesHtml;
+            } catch (error) {
+                console.error('加载类别失败:', error);
+            }
+        }
+        
+        // 检测文本
+        async function detectText() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                alert('请输入要检测的文本内容');
+                return;
+            }
+            
+            originalText = text;
+            
+            // 显示加载状态
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultCard').style.display = 'none';
+            
+            // 获取选中的类别
+            const selectedCategories = Array.from(document.querySelectorAll('#categoryCheckboxes input:checked'))
+                .map(cb => cb.value);
+            
+            try {
+                console.log('发送检测请求:', { text: text.substring(0, 50) + '...', categories: selectedCategories });
+                
+                const response = await fetch('/api/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        categories: selectedCategories
+                    })
+                });
+                
+                console.log('响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                console.log('检测结果:', result);
+                console.log('has_sensitive值:', result.has_sensitive);
+                console.log('has_sensitive类型:', typeof result.has_sensitive);
+                
+                if (result.error) {
+                    alert('检测失败: ' + result.error);
+                    return;
+                }
+                
+                // 确保has_sensitive字段存在
+                if (result.has_sensitive === undefined) {
+                    console.warn('has_sensitive字段不存在，设置为false');
+                    result.has_sensitive = false;
+                }
+                
+                displayResult(result);
+            } catch (error) {
+                console.error('检测失败:', error);
+                alert('检测失败: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // 显示结果
+        function displayResult(result) {
+            console.log('开始显示结果:', result);
+            console.log('result.has_sensitive:', result.has_sensitive);
+            console.log('result.detected_words:', result.detected_words);
+            
+            const statusBadge = document.getElementById('statusBadge');
+            const resultContent = document.getElementById('resultContent');
+            
+            console.log('statusBadge元素:', statusBadge);
+            console.log('resultContent元素:', resultContent);
+            
+            // 设置状态
+            console.log('has_sensitive值:', result.has_sensitive, '类型:', typeof result.has_sensitive);
+            if (result.has_sensitive === true) {
+                console.log('设置危险状态');
+                statusBadge.className = 'status-badge status-danger';
+                statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>发现敏感内容';
+            } else {
+                console.log('设置安全状态');
+                statusBadge.className = 'status-badge status-safe';
+                statusBadge.innerHTML = '<i class="fas fa-check-circle me-2"></i>内容安全';
+            }
+            
+            // 生成结果内容
+            let contentHtml = '';
+            
+            if (result.has_sensitive === true) {
+                // 风险等级显示
+                const riskLevelText = {
+                    'high': '高风险',
+                    'medium': '中风险', 
+                    'low': '低风险',
+                    'safe': '安全'
+                };
+                
+                const riskLevelClass = {
+                    'high': 'danger',
+                    'medium': 'warning',
+                    'low': 'info',
+                    'safe': 'success'
+                };
+                
+                contentHtml += `
+                    <div class="alert alert-${riskLevelClass[result.risk_level] || 'warning'}">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        检测到 <strong>${result.total_count}</strong> 个敏感词
+                        <span class="badge bg-${riskLevelClass[result.risk_level] || 'warning'} ms-2">
+                            ${riskLevelText[result.risk_level] || '未知'}
+                        </span>
+                    </div>
+                `;
+                
+                // 分类统计
+                if (result.category_summary && Object.keys(result.category_summary).length > 0) {
+                    contentHtml += `
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>分类统计</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                    `;
+                    
+                    Object.entries(result.category_summary).forEach(([category, stats]) => {
+                        contentHtml += `
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>${categories[category] || category}</span>
+                                    <div>
+                                        ${stats.high > 0 ? `<span class="badge bg-danger me-1">高${stats.high}</span>` : ''}
+                                        ${stats.medium > 0 ? `<span class="badge bg-warning me-1">中${stats.medium}</span>` : ''}
+                                        ${stats.low > 0 ? `<span class="badge bg-info me-1">低${stats.low}</span>` : ''}
+                                        <span class="badge bg-secondary">总计${stats.total}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    contentHtml += `
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 按类别显示结果
+                Object.entries(result.categories).forEach(([category, data]) => {
+                    contentHtml += `
+                        <div class="category-card">
+                            <h6><i class="fas fa-tag me-2"></i>${categories[category] || category}</h6>
+                            <p class="text-muted mb-3">发现 ${data.count} 个敏感词</p>
+                    `;
+                    
+                    data.words.forEach(wordData => {
+                        const levelClass = {
+                            'high': 'danger',
+                            'medium': 'warning', 
+                            'low': 'info'
+                        };
+                        
+                        contentHtml += `
+                            <div class="word-item">
+                                <div class="d-flex align-items-center">
+                                    <span><strong>${wordData.word}</strong></span>
+                                    <span class="badge bg-${levelClass[wordData.level] || 'secondary'} ms-2">
+                                        ${wordData.level === 'high' ? '高' : wordData.level === 'medium' ? '中' : '低'}
+                                    </span>
+                                </div>
+                                <span class="word-count">出现 ${wordData.count} 次</span>
+                            </div>
+                        `;
+                    });
+                    
+                    contentHtml += '</div>';
+                });
+                
+                // 显示高亮文本
+                contentHtml += `
+                    <div class="text-preview">
+                        <h6><i class="fas fa-eye me-2"></i>文本预览（敏感词已高亮）</h6>
+                        <div id="highlightedText"></div>
+                    </div>
+                `;
+                
+                // 高亮敏感词
+                if (result.detected_words && result.detected_words.length > 0) {
+                    // 延迟执行，确保DOM元素已经创建
+                    setTimeout(() => {
+                        highlightSensitiveWords(originalText, result.detected_words);
+                    }, 100);
+                }
+            } else {
+                contentHtml = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        恭喜！未发现敏感内容，文本安全。
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-shield-alt" style="font-size: 4rem; color: #28a745;"></i>
+                        <p class="mt-3 text-muted">文本内容符合安全标准</p>
+                    </div>
+                `;
+            }
+            
+            resultContent.innerHTML = contentHtml;
+            document.getElementById('resultCard').style.display = 'block';
+        }
+        
+        // 高亮敏感词
+        function highlightSensitiveWords(text, detectedWords) {
+            console.log('开始高亮敏感词，文本长度:', text.length);
+            console.log('检测到的敏感词:', detectedWords);
+            
+            // 等待DOM元素创建完成
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            function tryHighlight() {
+                const highlightedTextElement = document.getElementById('highlightedText');
+                console.log('尝试获取highlightedText元素，第', attempts + 1, '次:', highlightedTextElement);
+                
+                if (!highlightedTextElement) {
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        console.log('元素不存在，等待100ms后重试');
+                        setTimeout(tryHighlight, 100);
+                    } else {
+                        console.warn('highlightedText元素不存在，跳过高亮处理');
+                    }
+                    return;
+                }
+                
+                let highlightedText = text;
+                
+                // 按位置排序，从后往前替换，避免位置偏移
+                const sortedWords = detectedWords.sort((a, b) => {
+                    const maxPosA = Math.max(...a.positions);
+                    const maxPosB = Math.max(...b.positions);
+                    return maxPosB - maxPosA;
+                });
+                
+                console.log('排序后的敏感词:', sortedWords);
+                
+                sortedWords.forEach(wordData => {
+                    const regex = new RegExp(wordData.word, 'g');
+                    highlightedText = highlightedText.replace(regex, 
+                        `<span class="highlight-text">${wordData.word}</span>`);
+                });
+                
+                console.log('设置高亮文本到元素');
+                highlightedTextElement.innerHTML = highlightedText;
+                console.log('高亮文本设置完成');
+            }
+            
+            tryHighlight();
+        }
+        
+        // 清空文本
+        function clearText() {
+            document.getElementById('textInput').value = '';
+            document.getElementById('resultCard').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // 回车键检测
+        document.getElementById('textInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                detectText();
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,56 +1,394 @@
-🔗 在线体验：https://sensiteword.site
+# 敏感词检测系统（Vue3 + Vite + Go + Gin）
 
-⭐ 如果你觉得这个项目有价值，请点一个 Star 支持我们！
+一个可直接落地的敏感词检测系统，支持多策略命中（精确/归一化/模糊/拼音）、风险分级、命中定位跳转、词组映射、前端打码与复制导出。
 
-# sensitive-word-checker-frontend
+- 在线体验：[https://sensiteword.site](https://sensiteword.site)
+- 前端 + 后端仓库（当前项目）：[https://github.com/aureate7/sensitive-word-checker](https://github.com/aureate7/sensitive-word-checker)
+- 后端仓库（后端独立版）：[https://github.com/aureate7/go-sensitive-checker-backend](https://github.com/aureate7/go-sensitive-checker-backend)
 
-This template should help get you started developing with Vue 3 in Vite.
+---
 
-## repositories
-frontend: https://github.com/aureate7/sensitive-word-checker
+## 目录
 
-backend: https://github.com/aureate7/go-sensitive-checker-backend
+1. [功能总览](#功能总览)
+2. [系统架构](#系统架构)
+3. [项目结构](#项目结构)
+4. [快速开始](#快速开始)
+5. [核心功能说明](#核心功能说明)
+6. [API 说明](#api-说明)
+7. [词组映射文件格式](#词组映射文件格式)
+8. [环境变量配置（后端）](#环境变量配置后端)
+9. [构建与部署](#构建与部署)
+10. [常见问题](#常见问题)
+11. [后续优化预案](#后续优化预案)
 
-## How to employ
-Run the command `NODE_ENV=production npm run build` in the **root directory** of the project. This will generate a new folder, **named** `dist`, also in the root. Finally, **upload** the `dist` folder to your server and **configure it** to serve the static page.
+---
 
-## Recommended IDE Setup
+## 功能总览
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+### 检测能力
 
-## Recommended Browser Setup
+- 多类别检测：政治、暴恐、涉黄、辱骂、广告等。
+- 多策略命中：
+  - 精确匹配（原文）
+  - 去符号匹配（`exact_no_symbol`）
+  - 归一化匹配（`exact_normalized`）
+  - 模糊别名匹配（`fuzzy`）
+  - 拼音别名匹配（`pinyin`）
+- 结果解释：返回每条命中的证据（`hit_evidences`），包含命中词、类别、命中方式、原文片段、起止位置、风险等级。
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### 风险评估与可视化
 
-## Customize configuration
+- 风险等级：`high / medium / low / safe`。
+- 敏感词率面板：
+  - 总敏感词率 = 敏感字符数 / 文本总字符数
+  - 高/中/低风险敏感词率 = 对应风险敏感字符数 / 文本总字符数
+- 环图 + 指标卡联动：点击右侧指标卡，左侧环图聚焦显示对应风险占比；再次点击恢复全量视图。
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 命中词交互
 
-## Project Setup
+- 按类别展示命中词，支持数量与风险标记。
+- 命中词悬浮提示：显示“原文命中词”及“词库命中词（可能多个）”。
+- 点击命中词可跳转到下方“原文高亮”对应位置。
+- 同一词多次命中时，连续点击会在多个位置循环定位。
+- 跳转后目标词会进行显著高亮（强化颜色 + 外圈 + 动效）。
 
-```sh
-npm install
+### 词组映射（可选开关）
+
+- 映射开关：可启用/关闭词组映射能力。
+- 映射模式：
+  - `incremental`（增量）：系统映射 + 用户映射
+  - `override`（覆盖）：仅用户映射
+- 支持导入用户映射文件（`.txt/.csv/.tsv/.map`），并自动去重、忽略注释行。
+
+### 打码能力（前端执行）
+
+- 勾选后打码：从“原文命中词”下拉中选择目标词后打码。
+- 一键打码：按风险级别（高/中/低）批量打码，默认全选。
+- 打码结果可交互：在“打码文本”中点击片段可切换“打码/取消打码”。
+- 一键复制：复制当前打码文本（图标按钮）。
+
+---
+
+## 系统架构
+
+```text
+Vue3 + Element Plus 前端
+        |
+        | HTTP (/api/*)
+        v
+Go + Gin 后端
+        |
+        | 载入词库（temp 目录）
+        v
+AC 自动机 + 归一化 + 模糊/拼音别名索引
 ```
 
-### Compile and Hot-Reload for Development
+前端开发环境通过 Vite 代理将 `/api` 转发到 `http://127.0.0.1:8008`。
 
-```sh
+---
+
+## 项目结构
+
+```text
+.
+├── src/                         # 前端源码
+│   ├── pages/Home.vue           # 页面编排（输入区 + 结果区）
+│   ├── components/
+│   │   ├── CategoryPanel.vue    # 文本输入、类别选择、词组映射导入
+│   │   ├── ResultPanel.vue      # 风险可视化、命中词、打码、高亮
+│   │   ├── HighlightText.vue    # 原文高亮与焦点样式
+│   │   └── StatisticsCard.vue   # 左侧词库概览卡片
+│   ├── router/index.js          # 路由（当前仅首页）
+│   └── main.js                  # 应用入口
+├── go-sensitive-checker/        # Go 后端
+│   ├── main.go                  # API 服务入口（默认 :8008）
+│   ├── detector.go              # 检测主流程
+│   ├── normalize.go             # 归一化与词组映射
+│   ├── fuzzy_matcher.go         # 模糊别名索引
+│   ├── pinyin_matcher.go        # 拼音别名索引
+│   ├── detect_options.go        # 检测选项与环境开关
+│   └── temp/                    # 词库目录
+├── vite.config.js               # 前端代理配置
+└── README.md
+```
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- Node.js：`^20.19.0 || >=22.12.0`
+- Go：`1.23+`
+
+### 1) 启动后端（Go）
+
+```bash
+cd go-sensitive-checker
+go mod tidy
+go run .
+```
+
+启动后默认地址：
+
+- API 服务：[http://localhost:8008](http://localhost:8008)
+- 健康检查：[http://localhost:8008/ping](http://localhost:8008/ping)
+
+### 2) 启动前端（Vue）
+
+```bash
+# 在项目根目录（fronted）
+npm install
 npm run dev
 ```
 
-### Compile and Minify for Production
+访问：
 
-```sh
+- 前端页面：[http://localhost:5173](http://localhost:5173)
+
+> 开发时前端会自动代理 `/api` 到 `http://127.0.0.1:8008`。
+
+### 3) 可选：运行后端测试
+
+```bash
+cd go-sensitive-checker
+go test ./...
+```
+
+---
+
+## 核心功能说明
+
+### 1. 文本检测与类别选择
+
+- 输入检测文本。
+- 选择一个或多个类别（初始默认不选）。
+- 点击“开始检测”后请求 `/api/detect`。
+
+### 2. 风险统计与敏感词率
+
+结果面板包含：
+
+- 检测总览（命中数量 + 总风险级别）。
+- 敏感词率环图与指标卡。
+- 类别统计（每类高/中/低/总数）。
+
+统计口径（前端展示）：
+
+- 总敏感词率 = 敏感字符总数 / 文本总字符数
+- 高风险敏感词率 = 高风险敏感字符数 / 文本总字符数
+- 中风险敏感词率 = 中风险敏感字符数 / 文本总字符数
+- 低风险敏感词率 = 低风险敏感字符数 / 文本总字符数
+
+### 3. 命中敏感词模块
+
+- 命中词按类别卡片化展示。
+- 鼠标移入词条可查看：
+  - 原文命中词
+  - 命中词库词（可能多个候选）
+- 点击词条：
+  - 跳转到原文对应位置
+  - 同词多次命中时循环跳转
+  - 跳转目标词显著聚焦高亮
+
+### 4. 词组映射模块
+
+- 可通过开关启用/停用映射。
+- 支持用户导入映射文件。
+- 映射模式：
+  - 增量映射：系统内置映射 + 用户导入映射
+  - 覆盖映射：仅用户导入映射
+
+典型场景：将 `sh@bi`、`s-b`、`s b` 等映射/归一化后识别为同类敏感表达。
+
+### 5. 打码模块（前端）
+
+- 勾选后打码：对选中的“原文命中词”进行局部打码。
+- 一键打码：按风险级别批量打码。
+- 打码文本支持交互反选（点击片段恢复明文，再点再次打码）。
+- 支持一键复制打码结果。
+
+---
+
+## API 说明
+
+后端基础地址：`http://localhost:8008`
+
+### 1) 获取检测类别
+
+`GET /api/categories`
+
+响应示例：
+
+```json
+{
+  "political_high": "政治高敏感",
+  "political_low": "政治低敏感",
+  "abusive_high": "辱骂高敏感"
+}
+```
+
+### 2) 文本检测
+
+`POST /api/detect`
+
+请求体示例：
+
+```json
+{
+  "text": "你这个 sh@bi",
+  "categories": ["abusive_high", "abusive_low"],
+  "options": {
+    "exact_match": true,
+    "normalize_match": true,
+    "fuzzy_match": true,
+    "pinyin_match": true,
+    "enable_term_mapping": true,
+    "mapping_mode": "incremental",
+    "custom_mappings": [
+      { "from": "@", "to": "a" },
+      { "from": "vv", "to": "w" }
+    ]
+  }
+}
+```
+
+响应关键字段：
+
+| 字段 | 说明 |
+|---|---|
+| `has_sensitive` | 是否命中敏感词 |
+| `risk_level` | 总体风险等级：`safe/high/medium/low` |
+| `detected_words` | 聚合后的命中词结果 |
+| `categories` | 按类别聚合的命中词 |
+| `hit_evidences` | 命中证据列表（含 start/end/match_type/matched_text） |
+| `mask_suggestions` | 打码建议（词库词与原文命中片段映射） |
+| `applied_options` | 实际生效的检测选项 |
+| `normalized_text` | 常规归一化文本 |
+| `normalized_aggressive_text` | 强归一化文本 |
+
+`hit_evidences` 字段说明：
+
+| 字段 | 说明 |
+|---|---|
+| `word` | 命中的词库词 |
+| `category` | 命中类别 |
+| `match_type` | 命中方式（`exact_raw/exact_no_symbol/exact_normalized/fuzzy/pinyin`） |
+| `matched_text` | 原文命中片段 |
+| `start` / `end` | 原文中的 rune 下标区间（`[start,end)`） |
+| `risk_level` | 该条证据的风险等级 |
+
+### 3) 词库统计
+
+`GET /api/statistics`
+
+返回各大类与子类词库规模统计。
+
+### 4) 健康检查
+
+`GET /ping` -> `pong`
+
+---
+
+## 词组映射文件格式
+
+支持扩展名：`.txt`, `.csv`, `.tsv`, `.map`
+
+每行一条映射，支持以下分隔符：
+
+- `=>`
+- `->`
+- `=`
+- `,`
+- `\t`（制表符）
+
+示例：
+
+```text
+# 注释行会被忽略
+@ => a
+vv -> w
+s b = sb
+```
+
+规则说明：
+
+- 空行、注释行（`#` 或 `//` 开头）会被忽略。
+- 重复映射会自动去重。
+- `mapping_mode=incremental`：在系统默认映射基础上追加用户映射。
+- `mapping_mode=override`：只使用用户映射。
+
+---
+
+## 环境变量配置（后端）
+
+| 变量名 | 默认值 | 作用 |
+|---|---|---|
+| `SENSITIVE_ENABLE_NORMALIZE` | `true` | 启用归一化匹配 |
+| `SENSITIVE_ENABLE_FUZZY` | `true` | 启用模糊匹配 |
+| `SENSITIVE_ENABLE_PINYIN` | `true` | 启用拼音匹配 |
+| `SENSITIVE_ENABLE_AUTO_PINYIN` | `true` | 自动为汉字词生成拼音别名 |
+| `SENSITIVE_ENABLE_PINYIN_INITIALS` | `false` | 启用拼音首字母别名 |
+| `SENSITIVE_PINYIN_ALIAS_FILE` | `temp/拼音混淆词/拼音映射.txt` | 自定义拼音别名文件路径 |
+
+---
+
+## 构建与部署
+
+### 前端构建
+
+```bash
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+生成目录：`dist/`
 
-```sh
-npm run lint
+可用任意静态服务器部署（Nginx、Vercel、Netlify 等）。
+
+### 后端构建
+
+```bash
+cd go-sensitive-checker
+go build -o sensitive-checker
+./sensitive-checker
 ```
+
+生产环境建议：
+
+- 使用反向代理（Nginx）统一域名与 HTTPS。
+- 对 `/api/detect` 增加请求体大小限制。
+- 结合业务场景设置 CORS 白名单（当前代码为 `cors.Default()`）。
+
+---
+
+## 常见问题
+
+### 1) 前端请求报错 / 404
+
+检查是否已启动后端，并确认后端监听 `8008` 端口。
+
+### 2) 映射导入后没生效
+
+检查：
+
+- 映射开关是否开启。
+- 是否选择了正确模式（增量/覆盖）。
+- 文件格式是否为“每行一条有效映射”。
+
+### 3) 命中词跳转不到原文位置
+
+通常由命中数据与原文不一致导致。请确认检测结果对应的是当前文本，重新检测后再试。
+
+### 4) 词库修改后无变化
+
+后端启动时加载词库，修改 `go-sensitive-checker/temp` 下文件后需要重启后端。
+
+---
+
+## 后续优化预案
+
+- 将 `StatisticsCard` 改为实时调用 `/api/statistics`（当前为静态展示值）。
+- 增加公网部署的接口鉴权与限流。
+- 增加前端自动化测试与后端基准测试。
+- 增加 Docker / docker-compose 一键部署方案。

@@ -36,3 +36,8 @@ coverage
 __screenshots__/
 
 *.zip
+
+# data
+go-sensitive-checker/temp/
+go-sensitive-checker/sensitiveChecker
+go-sensitive-checker/*.log

@@ -84,7 +84,7 @@
                 风险：{{ riskLevelText }}
               </span>
               <span class="chip chip-count">
-                命中：{{ result.total_count || (result.detected_words?.length ?? 0) }} 词
+                命中：{{ displayHitCount }} 词
               </span>
             </div>
           </div>
@@ -143,8 +143,24 @@ const riskLevelClass = computed(() => {
   }
 })
 
+const displayHitCount = computed(() => {
+  if (!result.value) return 0
+  const evidences = result.value.hit_evidences
+  if (Array.isArray(evidences) && evidences.length) {
+    const uniq = new Set()
+    evidences.forEach((ev) => {
+      const start = Number(ev?.start)
+      const end = Number(ev?.end)
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return
+      uniq.add(`${start}:${end}`)
+    })
+    if (uniq.size > 0) return uniq.size
+  }
+  return result.value.total_count || (result.value.detected_words?.length ?? 0)
+})
+
 // 接收 CategoryPanel 发来的检测请求
-const handleDetect = async ({ text, categories }) => {
+const handleDetect = async ({ text, categories, options }) => {
   if (!text.trim()) return
 
   loading.value = true
@@ -154,6 +170,7 @@ const handleDetect = async ({ text, categories }) => {
     const resp = await axios.post('/api/detect', {
       text,
       categories,
+      options,
     })
     result.value = resp.data
   } catch (err) {
